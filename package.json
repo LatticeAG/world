@@ -1,0 +1,30 @@
+{
+  "name": "@latticeag/world",
+  "version": "0.1.0",
+  "description": "LatticeAG World zone core: event-sourced world state isolated by claim, with runtime-enforced fences, bound simulation, and replayable evidence.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "bin": {
+    "world": "bin/world"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "native"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:native": "cc -O2 -Wall -Wextra -o native/peercred native/peercred.c && cc -O2 -Wall -Wextra -o native/world-launcher native/world-launcher.c",
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "conformance": "npm run build && node --test dist/test/vectors.test.js",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.4",
+    "typescript": "^5.9.3"
+  }
+}
