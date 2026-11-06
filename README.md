@@ -53,7 +53,35 @@ Run the conformance harness against the normative vectors:
 npm run conformance
 ```
 
-CLI sketch (a broker is configured by `world.json`; see `world config check`):
+For a local fixture B broker, create a config with absolute paths in a working
+folder. This uses public test keys and is intended only for local experiments:
+
+```sh
+mkdir -p world-demo
+WDIR="$(cd world-demo && pwd)"
+cat > "$WDIR/world.json" <<EOF
+{
+  "config_version": 1,
+  "world": "w1",
+  "socket": "$WDIR/world.sock",
+  "storage_root": "$WDIR/storage",
+  "profile": "wasm-process-v1",
+  "policy": "default",
+  "writer_key_handle": "test:writer-test-1",
+  "threshold": 1,
+  "seats": ["seat1"],
+  "network_default": "deny",
+  "limits": {"claims": 100, "workers_per_claim": 4, "queue_per_claim": 100, "memory_bytes": "67108864", "cpu_ms": "10000", "pids": 32, "event_bytes": 1048576},
+  "simulation": {"ttl_ms": 60000, "fuel": "1000000", "memory_bytes": "67108864", "timeout_ms": 10000},
+  "retention": {"local_days": 30, "archive_destinations": [], "automatic_prune": false},
+  "observability": {"metrics_socket": "$WDIR/metrics.sock", "include_payloads": false}
+}
+EOF
+node bin/world config check --file "$WDIR/world.json" --json
+node bin/world serve --config "$WDIR/world.json" --fixture-seed fixtureB --json
+```
+
+CLI sketch (with an installed `world` command and your own config and inputs):
 
 ```sh
 world config check --file world.json --json
