@@ -43,7 +43,7 @@ zone-gated surfaces are defined interfaces that fail closed or report
 
 ```sh
 npm ci
-npm run build:native   # optional: SO_PEERCRED + sandbox launcher helpers
+npm run build:native   # required for Linux broker peer credentials and sandbox helper
 npm test               # builds, then runs the full suite
 ```
 
@@ -80,6 +80,24 @@ EOF
 node bin/world config check --file "$WDIR/world.json" --json
 node bin/world serve --config "$WDIR/world.json" --fixture-seed fixtureB --json
 ```
+
+In another terminal, run a fixture simulation as the same OS user that started
+the broker (set `WDIR` again if needed):
+
+```sh
+WDIR="$(cd world-demo && pwd)"
+cat > "$WDIR/intent.json" <<'EOF'
+{"world":"w1","claim":"cA","branch":"main","principal":"pA","cap":"capWrite","action":"kv.put","args":{"key":"balance","value":"8","expected_rev":"4"},"max_cost":{"uses":"1","bytes":"16"},"deadline_ms":"10000"}
+EOF
+node bin/world simulate --intent "$WDIR/intent.json" --socket "$WDIR/world.sock" --json
+```
+
+The Linux broker uses the built `native/peercred` helper and `SO_PEERCRED` to
+map the connecting UID to an enabled principal. A fresh fixture binds the
+starting UID to the `pAdmin` operator, which can attach to `pA`'s channel.
+Existing stores retain their original UID mapping; use a fresh storage root
+for a new fixture or provision the appropriate principal through the normal
+administrative path. A missing or non-executable helper prevents authentication.
 
 CLI sketch (with an installed `world` command and your own config and inputs):
 

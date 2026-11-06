@@ -39,6 +39,7 @@ export function peerUid(socket: net.Socket, helper?: string): number {
   if (fd === undefined || fd < 0) throw new WorldError("UNAUTHENTICATED", "No socket fd for peer credentials.");
   const bin = helper ?? "native/peercred";
   const r = spawnSync(bin, ["3"], { stdio: ["ignore", "pipe", "ignore", fd], encoding: "utf8" });
+  if (r.error) throw new WorldError("UNAUTHENTICATED", "Cannot run peercred helper; build it with npm run build:native.");
   if (r.status !== 0) throw new WorldError("UNAUTHENTICATED", "SO_PEERCRED unavailable.");
   const m = /^uid=(\d+)$/.exec(r.stdout.trim());
   if (!m) throw new WorldError("UNAUTHENTICATED", "Unparseable peer credentials.");
@@ -239,8 +240,9 @@ export class WorldServer {
           let caller: { principal: string; type: string };
           try {
             caller = this.principalForSocket(socket);
-          } catch {
-            socket.end(encodeFrame({ type: "result", id: String(f["id"] ?? "attach"), error: { code: "UNAUTHENTICATED", message: "Peer credentials unavailable.", retryable: false } }));
+          } catch (e) {
+            const w = e instanceof WorldError ? e : new WorldError("UNAUTHENTICATED", "Peer credentials unavailable.");
+            socket.end(encodeFrame({ type: "result", id: String(f["id"] ?? "attach"), error: w.toErrorObject() as unknown as JsonValue }));
             return;
           }
           let name: string | null;
