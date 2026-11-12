@@ -43,7 +43,7 @@ zone-gated surfaces are defined interfaces that fail closed or report
 
 ```sh
 npm ci
-npm run build:native   # optional: SO_PEERCRED + sandbox launcher helpers
+npm run build:native   # required for Linux broker peer credentials and sandbox helper
 npm test               # builds, then runs the full suite
 ```
 
@@ -53,7 +53,53 @@ Run the conformance harness against the normative vectors:
 npm run conformance
 ```
 
-CLI sketch (a broker is configured by `world.json`; see `world config check`):
+For a local fixture B broker, create a config with absolute paths in a working
+folder. This uses public test keys and is intended only for local experiments:
+
+```sh
+mkdir -p world-demo
+WDIR="$(cd world-demo && pwd)"
+cat > "$WDIR/world.json" <<EOF
+{
+  "config_version": 1,
+  "world": "w1",
+  "socket": "$WDIR/world.sock",
+  "storage_root": "$WDIR/storage",
+  "profile": "wasm-process-v1",
+  "policy": "default",
+  "writer_key_handle": "test:writer-test-1",
+  "threshold": 1,
+  "seats": ["seat1"],
+  "network_default": "deny",
+  "limits": {"claims": 100, "workers_per_claim": 4, "queue_per_claim": 100, "memory_bytes": "67108864", "cpu_ms": "10000", "pids": 32, "event_bytes": 1048576},
+  "simulation": {"ttl_ms": 60000, "fuel": "1000000", "memory_bytes": "67108864", "timeout_ms": 10000},
+  "retention": {"local_days": 30, "archive_destinations": [], "automatic_prune": false},
+  "observability": {"metrics_socket": "$WDIR/metrics.sock", "include_payloads": false}
+}
+EOF
+node bin/world config check --file "$WDIR/world.json" --json
+node bin/world serve --config "$WDIR/world.json" --fixture-seed fixtureB --json
+```
+
+In another terminal, run a fixture simulation as the same OS user that started
+the broker (set `WDIR` again if needed):
+
+```sh
+WDIR="$(cd world-demo && pwd)"
+cat > "$WDIR/intent.json" <<'EOF'
+{"world":"w1","claim":"cA","branch":"main","principal":"pA","cap":"capWrite","action":"kv.put","args":{"key":"balance","value":"8","expected_rev":"4"},"max_cost":{"uses":"1","bytes":"16"},"deadline_ms":"10000"}
+EOF
+node bin/world simulate --intent "$WDIR/intent.json" --socket "$WDIR/world.sock" --json
+```
+
+The Linux broker uses the built `native/peercred` helper and `SO_PEERCRED` to
+map the connecting UID to an enabled principal. A fresh fixture binds the
+starting UID to the `pAdmin` operator, which can attach to `pA`'s channel.
+Existing stores retain their original UID mapping; use a fresh storage root
+for a new fixture or provision the appropriate principal through the normal
+administrative path. A missing or non-executable helper prevents authentication.
+
+CLI sketch (with an installed `world` command and your own config and inputs):
 
 ```sh
 world config check --file world.json --json
